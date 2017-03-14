@@ -1,3 +1,10 @@
+# Ricecooker caches and temp dirs
+.cake
+restore
+sampledata/.ricecookerfilecache
+sampledata
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
