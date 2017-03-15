@@ -1,5 +1,6 @@
-# simple-sushichef-example
-Simple sushichef script that uploads media files to the content curation workshop
+Simple sushichef example
+========================
+Simple sushichef script that uploads media files to the content curation workshop.
 
 
 Install
@@ -44,15 +45,26 @@ where you have to replace `78aec...` with your token.
 
 
 
-TODO
-----
+Python wheel format testing
+---------------------------
+To build a `.whl` run
 
-Finish packaging & generating standalone installable wheel 
-  - https://packaging.python.org/distributing/
-  - https://github.com/pypa/sampleproject
-  - https://www.blog.pythonlibrary.org/2014/01/10/python-packaging-wheel/
+    python setup.py bdist_wheel
 
-Test wheel works on Windows
+To install the `.whl` on another virtual environment (e.g. `.newcake`) download
+the file [`ricecake-0.1.0-py3-none-any.whl`](https://github.com/ivanistheone/simple-sushichef-example/raw/master/dist/ricecake-0.1.0-py3-none-any.whl), and install it using
+
+    virtualenv -p python3.5 .newcake
+    source .newcake/bin/activate
+    pip install ricecake-0.1.0-py3-none-any.whl
+
+Now you should be able to run the binary `ricecake` from the command line:
+
+    ricecake  --token=70aec00000000000000000000000000000000ed4  /path/to/sampledata/my\ first\ ricecooker
+
+
+TODO: Test wheel works on Windows.
+
 
 
 
