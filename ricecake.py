@@ -125,6 +125,7 @@ def process_folder(channel, raw_path, subfolders, filenames):
         optionals['description'] = files_config.get(file_key, 'description', fallback=None)
         node = make_content_node(kind, source_id, title, license, filepath, optionals)
         # attach to containing topic
+        print(node.__dict__)
         topic.add_child(node)
 
 
@@ -134,7 +135,7 @@ def make_content_node(kind, source_id, title, license, filepath, optionals):
     """
     content_node = None
     if kind == content_kinds.VIDEO:
-        node = nodes.VideoNode(
+        content_node = nodes.VideoNode(
             source_id=source_id,
             title=title,
             license=license,
