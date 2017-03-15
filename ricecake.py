@@ -68,7 +68,6 @@ def construct_channel(**kwargs):
     # handle each subfolder
     for raw_path, subfolders, filenames in content_folders:
         print('processing a subfloder')
-        print(raw_path, subfolders, filenames)
         process_folder(channel, raw_path, subfolders, filenames)
 
     return channel
@@ -125,7 +124,6 @@ def process_folder(channel, raw_path, subfolders, filenames):
         optionals['description'] = files_config.get(file_key, 'description', fallback=None)
         node = make_content_node(kind, source_id, title, license, filepath, optionals)
         # attach to containing topic
-        print(node.__dict__)
         topic.add_child(node)
 
 
