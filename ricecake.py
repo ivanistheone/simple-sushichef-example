@@ -5,9 +5,14 @@ import configparser
 import os
 import sys
 
+from ricecooker.chefs import SushiChef
 from ricecooker.classes import nodes, files
 from le_utils.constants import content_kinds
 from ricecooker.commands import uploadchannel
+
+
+IGNORABLE_FILENAMES = ['.DS_Store']
+
 
 
 # HELPER METHODS
@@ -24,53 +29,13 @@ def get_path_as_list(path):
 def get_node_for_path(channel, path_as_list):
     """
     Returns the TopicNode at the given path.
-    """    
+    """
+    # print('path_as_list=', path_as_list)
     current = channel
     for subtopic in path_as_list:
         current = list(filter(lambda d: d.title == subtopic, current.children))[0]
     return current
 
-
-
-# CHANNEL MAIN
-################################################################################
-def construct_channel(**kwargs):
-    """
-    Create a channel from filesytem tree staring at `folder_path`.
-    Needs to have channelmetata.ini in the same folder as `folder_path`.
-    
-    Uses `process_folder` for the actual work.
-    """
-    folder_path = kwargs['folder_path']
-    content_folders = list(os.walk(folder_path))
-    
-    # global data structure channel
-    channel = {}
-    
-    print('processing channel...')
-
-    # read channelmetadata.ini
-    parent_path, _ = os.path.split(folder_path)
-    channel_ini_filepath = os.path.join(parent_path, 'channelmetadata.ini')
-    channel_config = configparser.ConfigParser()
-    channel_config.read(channel_ini_filepath)
-
-    # create channel
-    channel = nodes.ChannelNode(
-        source_domain = channel_config.get('channeldata', 'domain'),
-        source_id = channel_config.get('channeldata', 'source_id'),
-        title = channel_config.get('channeldata', 'title'),
-        thumbnail = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Quaker-Popped-Rice-Snacks.jpg/320px-Quaker-Popped-Rice-Snacks.jpg",
-    )
-    
-    # Skip over channel folder because handled above
-    _ = content_folders.pop(0)
-    # handle each subfolder
-    for raw_path, subfolders, filenames in content_folders:
-        print('processing a subfloder')
-        process_folder(channel, raw_path, subfolders, filenames)
-
-    return channel
 
 
 # FOLDER PROCESSING
@@ -81,7 +46,7 @@ def process_folder(channel, raw_path, subfolders, filenames):
     under the path `raw_path`.
     """
     path_as_list = get_path_as_list(raw_path)
-    
+
     # A. TOPIC
     topic_title = path_as_list.pop()
     parent_node = get_node_for_path(channel, path_as_list)
@@ -109,6 +74,8 @@ def process_folder(channel, raw_path, subfolders, filenames):
     folder_ini = os.path.join(raw_path, 'metadata.ini')
     files_config.read(folder_ini)
     for filename in filenames:
+        if filename in IGNORABLE_FILENAMES:
+            continue
         file_key, file_ext = os.path.splitext(filename)
         ext = file_ext[1:]
         kind = None
@@ -153,7 +120,7 @@ def make_content_node(kind, source_id, title, license, filepath, optionals):
             thumbnail=optionals.get("thumbnail", None),
             files=[files.AudioFile(path=filepath)],
         )
-    
+
     elif kind == content_kinds.DOCUMENT:
         content_node = nodes.DocumentNode(
             source_id=source_id,
@@ -164,32 +131,83 @@ def make_content_node(kind, source_id, title, license, filepath, optionals):
             thumbnail=optionals.get("thumbnail", None),
             files=[files.DocumentFile(path=filepath)],
         )
-    
+
     return content_node
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Upload a folder hierarchy to the content workshop.")
-    parser.add_argument('--token', required=True, help='Token from content workshop')
-    parser.add_argument('folder_path', help='A folder with files to upload')
-    args = parser.parse_args()
-    input_path = args.folder_path
-    token = args.token
-    
-    # save current module name before chdir
-    this_module = os.path.abspath(__file__)
-    
-    # change path to be in parent dir of `folder_path`
-    os.chdir(input_path)
-    os.chdir('..')
-    
-    # get name for channel folder
-    input_path = input_path.rstrip(os.path.sep)
-    (parent, folder_path) = os.path.split(input_path)
-    # construct_channel(folder_path=folder_path)
-    
-    uploadchannel(this_module, folder_path=folder_path, token=token, verbose=True, reset=True)
 
+
+# CHEF
+################################################################################
+
+class RicecakeSushiChef(SushiChef):
+    """
+    Sushi chef that reads the files from a given directory structure and turns
+    them into a Kolibri channel.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(RicecakeSushiChef, self).__init__(*args, **kwargs)
+        self.arg_parser = argparse.ArgumentParser(
+            description="Upload a folder hierarchy to the content workshop.",
+            parents=[self.arg_parser]
+        )
+        self.arg_parser.add_argument('--folder_path', help='A folder with files to upload')
+
+
+    def get_channel(self, **kwargs):
+        # read channelmetadata.ini
+        channel_files_folder = os.path.abspath(kwargs['folder_path'])
+        channel_ini_filepath = os.path.join(channel_files_folder, '..', 'channelmetadata.ini')
+        channel_config = configparser.ConfigParser()
+        channel_config.read(channel_ini_filepath)
+
+        # create channel
+        channel = nodes.ChannelNode(
+            source_domain = channel_config.get('channeldata', 'domain'),
+            source_id = channel_config.get('channeldata', 'source_id'),
+            title = channel_config.get('channeldata', 'title'),
+            thumbnail = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Quaker-Popped-Rice-Snacks.jpg/320px-Quaker-Popped-Rice-Snacks.jpg",
+            language = 'en',
+        )
+        return channel
+
+
+    def construct_channel(self, **kwargs):
+        """
+        Create a channel from filesytem tree staring at `folder_path`.
+        Needs to have channelmetata.ini in the same folder as `folder_path`.
+
+        Uses `process_folder` for the actual work.
+        """
+        channel = self.get_channel(**kwargs)
+
+        channel_files_folder = os.path.abspath(kwargs['folder_path'])
+        (parent, folder_path) = os.path.split(channel_files_folder)
+        # print('parent=', parent)
+        # print('folder_path=', folder_path)
+        os.chdir(channel_files_folder)
+        os.chdir('..')
+        # print('cwd=', os.getcwd())
+        content_folders = list(os.walk(folder_path))
+        # print(content_folders)
+
+        print('processing channel...')
+        # Skip over channel folder because handled above
+        _ = content_folders.pop(0)
+        # handle each subfolder
+        for raw_path, subfolders, filenames in content_folders:
+            print('processing a subfloder')
+            process_folder(channel, raw_path, subfolders, filenames)
+
+        return channel
+
+
+
+# CLI
+################################################################################
 
 if __name__ == '__main__':
-    main()
+    ricecake_chef = RicecakeSushiChef()
+    ricecake_chef.main()
+
